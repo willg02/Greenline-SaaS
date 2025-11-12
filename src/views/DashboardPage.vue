@@ -2,7 +2,47 @@
   <div class="dashboard-layout">
     <NavigationBar />
     
-    <main class="dashboard-main">
+    <!-- Create Organization Modal -->
+    <div v-if="showCreateOrgModal" class="modal-overlay" @click="showCreateOrgModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h2>Create Your Organization</h2>
+          <button @click="showCreateOrgModal = false" class="btn-close">✕</button>
+        </div>
+        <form @submit.prevent="handleCreateOrganization" class="modal-form">
+          <div class="form-group">
+            <label for="org-name">Organization Name</label>
+            <input 
+              id="org-name"
+              v-model="newOrgName" 
+              type="text" 
+              required
+              placeholder="e.g., GreenTouch Landscaping"
+              class="form-input"
+              autofocus
+            >
+          </div>
+          <div class="modal-footer">
+            <button type="button" @click="showCreateOrgModal = false" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Organization</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- No Organization State -->
+    <div v-if="!orgStore.currentOrganization && !loading" class="no-org-state">
+      <div class="no-org-card">
+        <div class="no-org-icon">🏢</div>
+        <h2>Welcome to Greenline!</h2>
+        <p>Let's create your organization to get started.</p>
+        <button @click="showCreateOrgModal = true" class="btn btn-primary btn-lg">
+          Create Organization
+        </button>
+      </div>
+    </div>
+    
+    <main v-else class="dashboard-main">
       <div class="container">
         <div class="dashboard-header">
           <div>
@@ -111,6 +151,9 @@ const totalClients = ref(0)
 const totalPlants = ref(30) // Default from plant database
 const totalRevenue = ref(0)
 const recentQuotes = ref([])
+const showCreateOrgModal = ref(false)
+const newOrgName = ref('')
+const loading = ref(false)
 
 const userName = computed(() => 
   authStore.user?.user_metadata?.full_name || 
@@ -123,8 +166,36 @@ const subscriptionTier = computed(() =>
 )
 
 onMounted(async () => {
-  await loadDashboardData()
+  // Check if user has organizations, if not show create modal
+  if (orgStore.userOrganizations.length === 0 && !orgStore.currentOrganization) {
+    showCreateOrgModal.value = true
+  } else {
+    await loadDashboardData()
+  }
 })
+
+async function handleCreateOrganization() {
+  if (!newOrgName.value.trim()) return
+  
+  loading.value = true
+  try {
+    const { data, error } = await orgStore.createOrganization({
+      name: newOrgName.value.trim(),
+      owner_id: authStore.user.id
+    })
+    
+    if (error) throw error
+    
+    showCreateOrgModal.value = false
+    newOrgName.value = ''
+    await loadDashboardData()
+  } catch (error) {
+    console.error('Error creating organization:', error)
+    alert('Failed to create organization. Please try again.')
+  } finally {
+    loading.value = false
+  }
+}
 
 async function loadDashboardData() {
   if (!orgStore.organizationId) return
@@ -351,5 +422,103 @@ function formatDate(dateString) {
   .stats-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Organization Creation Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.modal-content input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.modal-content button {
+  padding: 12px;
+  background: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.modal-content button:hover {
+  background: #0052a3;
+}
+
+.modal-content button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* No Organization State */
+.no-org-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.no-org-state h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.no-org-state p {
+  margin-bottom: 30px;
+  color: #666;
+  max-width: 500px;
+}
+
+.no-org-state button {
+  padding: 12px 24px;
+  background: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.no-org-state button:hover {
+  background: #0052a3;
 }
 </style>
