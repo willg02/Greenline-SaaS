@@ -49,7 +49,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { marked } from 'https://cdn.jsdelivr.net/npm/marked@11.1.1/+esm';
+import { marked } from 'marked';
 
 const props = defineProps({
   document: {
