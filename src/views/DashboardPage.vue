@@ -3,12 +3,12 @@
     <NavigationBar />
     
     <!-- Create Organization Modal -->
-    <div v-if="showCreateOrgModal" class="modal-overlay" @click="showCreateOrgModal = false">
+    <div v-if="showCreateOrgModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h2>Create Your Organization</h2>
-          <button @click="showCreateOrgModal = false" class="btn-close">✕</button>
-        </div>
+        <button class="close-button" @click="closeModal" type="button">×</button>
+        <div class="modal-icon">🏢</div>
+        <h2>Create Your Organization</h2>
+        <p class="modal-description">Get started by setting up your organization. You can always change this later.</p>
         <form @submit.prevent="handleCreateOrganization" class="modal-form">
           <div class="form-group">
             <label for="org-name">Organization Name</label>
@@ -17,27 +17,33 @@
               v-model="newOrgName" 
               type="text" 
               required
+              :disabled="loading"
               placeholder="e.g., GreenTouch Landscaping"
               class="form-input"
               autofocus
             >
           </div>
-          <div class="modal-footer">
-            <button type="button" @click="showCreateOrgModal = false" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn btn-primary">Create Organization</button>
+          <div class="button-group">
+            <button type="button" @click="closeModal" class="btn-secondary" :disabled="loading">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="loading || !newOrgName.trim()">
+              <span v-if="loading">Creating...</span>
+              <span v-else>Create Organization</span>
+            </button>
           </div>
         </form>
+        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
       </div>
     </div>
 
     <!-- No Organization State -->
     <div v-if="!orgStore.currentOrganization && !loading" class="no-org-state">
-      <div class="no-org-card">
-        <div class="no-org-icon">🏢</div>
+      <div class="welcome-card">
+        <div class="welcome-icon">🌱</div>
         <h2>Welcome to Greenline!</h2>
-        <p>Let's create your organization to get started.</p>
-        <button @click="showCreateOrgModal = true" class="btn btn-primary btn-lg">
-          Create Organization
+        <p>Let's get started by creating your organization. This will be your workspace for managing quotes, clients, and projects.</p>
+        <button @click="showCreateOrgModal = true" class="btn-create-org">
+          <span class="btn-icon">🏢</span>
+          Create Your Organization
         </button>
       </div>
     </div>
@@ -154,6 +160,7 @@ const recentQuotes = ref([])
 const showCreateOrgModal = ref(false)
 const newOrgName = ref('')
 const loading = ref(false)
+const errorMessage = ref('')
 
 const userName = computed(() => 
   authStore.user?.user_metadata?.full_name || 
@@ -166,6 +173,9 @@ const subscriptionTier = computed(() =>
 )
 
 onMounted(async () => {
+  // Load organizations first
+  await orgStore.loadUserOrganizations()
+  
   // Check if user has organizations, if not show create modal
   if (orgStore.userOrganizations.length === 0 && !orgStore.currentOrganization) {
     showCreateOrgModal.value = true
@@ -178,22 +188,36 @@ async function handleCreateOrganization() {
   if (!newOrgName.value.trim()) return
   
   loading.value = true
+  errorMessage.value = ''
+  
   try {
     const { data, error } = await orgStore.createOrganization({
       name: newOrgName.value.trim(),
       owner_id: authStore.user.id
     })
     
-    if (error) throw error
+    if (error) {
+      console.error('Organization creation error:', error)
+      errorMessage.value = error.message || 'Failed to create organization. Please try again.'
+      return
+    }
     
     showCreateOrgModal.value = false
     newOrgName.value = ''
     await loadDashboardData()
   } catch (error) {
     console.error('Error creating organization:', error)
-    alert('Failed to create organization. Please try again.')
+    errorMessage.value = 'An unexpected error occurred. Please try again.'
   } finally {
     loading.value = false
+  }
+}
+
+function closeModal() {
+  if (!loading.value) {
+    showCreateOrgModal.value = false
+    errorMessage.value = ''
+    newOrgName.value = ''
   }
 }
 
@@ -431,59 +455,177 @@ function formatDate(dateString) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modal-content {
   background: white;
-  padding: 30px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  max-width: 400px;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 480px;
   width: 90%;
+  position: relative;
+  animation: slideUp 0.3s ease-out;
 }
 
-.modal-content h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
+.close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.close-button:hover {
   color: #333;
 }
 
-.modal-content form {
+.modal-icon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.modal-content h2 {
+  margin: 0 0 12px 0;
+  color: #1a1a1a;
+  font-size: 28px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.modal-description {
+  color: #666;
+  text-align: center;
+  margin-bottom: 24px;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.modal-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 20px;
 }
 
-.modal-content input {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-input {
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
   font-size: 16px;
+  transition: border-color 0.2s;
+  font-family: inherit;
 }
 
-.modal-content button {
-  padding: 12px;
+.form-input:focus {
+  outline: none;
+  border-color: #0066cc;
+}
+
+.form-input:disabled {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.button-group button {
+  flex: 1;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn-primary {
   background: #0066cc;
   color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background 0.3s;
 }
 
-.modal-content button:hover {
+.btn-primary:hover:not(:disabled) {
   background: #0052a3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
 }
 
-.modal-content button:disabled {
+.btn-primary:disabled {
   background: #ccc;
   cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 14px;
+  text-align: center;
+  margin-top: 12px;
+  padding: 10px;
+  background: #fff5f5;
+  border-radius: 6px;
+  border: 1px solid #ffebee;
 }
 
 /* No Organization State */
@@ -492,33 +634,62 @@ function formatDate(dateString) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: 60vh;
   padding: 60px 20px;
+}
+
+.welcome-card {
+  background: white;
+  padding: 48px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   text-align: center;
+  max-width: 560px;
+  animation: slideUp 0.4s ease-out;
 }
 
-.no-org-state h2 {
-  margin-bottom: 20px;
-  color: #333;
+.welcome-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
 }
 
-.no-org-state p {
-  margin-bottom: 30px;
+.welcome-card h2 {
+  margin: 0 0 16px 0;
+  color: #1a1a1a;
+  font-size: 32px;
+  font-weight: 600;
+}
+
+.welcome-card p {
+  margin-bottom: 32px;
   color: #666;
-  max-width: 500px;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
-.no-org-state button {
-  padding: 12px 24px;
-  background: #0066cc;
+.btn-create-org {
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(0, 102, 204, 0.3);
+  font-family: inherit;
 }
 
-.no-org-state button:hover {
-  background: #0052a3;
+.btn-create-org:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 102, 204, 0.4);
+}
+
+.btn-icon {
+  font-size: 20px;
 }
 </style>
