@@ -84,12 +84,14 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import NavigationBar from '@/components/NavigationBar.vue'
 import { useQuotesStore } from '@/stores/quotes'
 import { supabase } from '@/lib/supabase'
 import { useOrganizationStore } from '@/stores/organization'
 
 const quotesStore = useQuotesStore()
+const router = useRouter()
 const organizationStore = useOrganizationStore()
 const clients = ref([])
 const showNewModal = ref(false)
@@ -124,10 +126,7 @@ async function createQuote() {
   selectedClientId.value = ''
   projectName.value = ''
   taxRate.value = 0
-  if (quote?.id) {
-    // navigate to detail
-    window.location.href = `/Greenline-SaaS/quotes/${quote.id}`
-  }
+  if (quote?.id) router.push({ name: 'QuoteDetail', params: { id: quote.id } })
 }
 
 onMounted(async () => {
