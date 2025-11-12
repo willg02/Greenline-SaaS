@@ -57,6 +57,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/sop-library',
+    name: 'SOPLibrary',
+    component: () => import('@/views/SOPLibrary.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsPage.vue'),
