@@ -90,7 +90,10 @@
 
         <div class="card">
           <h3 class="section-title">Export</h3>
-          <p>PDF export & share links coming soon.</p>
+          <div class="export-actions">
+            <button class="btn btn-primary btn-sm" @click="printPage">Print / Save as PDF</button>
+            <span class="hint">A branded PDF export is coming soon.</span>
+          </div>
         </div>
       </div>
     </main>
@@ -152,6 +155,8 @@ async function setStatus(status) {
 }
 
 onMounted(init)
+
+function printPage() { window.print() }
 </script>
 
 <style scoped>
@@ -183,4 +188,6 @@ onMounted(init)
 .error { color:#c92a2a; font-size:.7rem; }
 .btn-sm { font-size:.65rem; padding:.4rem .6rem; }
 .btn-secondary { background: var(--bg-tertiary); }
+.export-actions { display:flex; align-items:center; gap:.75rem; }
+.hint { color: var(--text-secondary); font-size:.8rem; }
 </style>
