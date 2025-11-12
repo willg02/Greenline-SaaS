@@ -41,77 +41,8 @@
                   <span class="org-name">{{ org.name }}</span>
                   <span class="org-badge">{{ org.role }}</span>
                 </div>
-                <div class="dropdown-item" @click.stop="openCreateOrgModal">
-                  <span class="org-name" style="color: var(--color-primary); font-weight: 600;">+ Create Organization</span>
-                </div>
                 <div class="dropdown-divider"></div>
               </div>
-</template>
-  <div v-if="showCreateOrgModal" class="modal-overlay">
-    <div class="modal-card">
-      <h3 style="margin-bottom: 1rem;">Create Organization</h3>
-      <input
-        v-model="newOrgName"
-        type="text"
-        class="input-field"
-        placeholder="Organization Name"
-        :disabled="creatingOrg"
-        style="width: 100%; margin-bottom: 0.5rem;"
-      />
-      <div v-if="createOrgError" class="alert alert-error" style="margin-bottom: 0.5rem;">{{ createOrgError }}</div>
-      <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-        <button class="btn btn-secondary" @click="closeCreateOrgModal" :disabled="creatingOrg">Cancel</button>
-        <button class="btn btn-primary" @click="handleCreateOrganization" :disabled="creatingOrg">
-          {{ creatingOrg ? 'Creating...' : 'Create' }}
-        </button>
-      </div>
-    </div>
-  </div>
-// Modal state and logic for creating organization
-const showCreateOrgModal = ref(false)
-const newOrgName = ref("")
-const creatingOrg = ref(false)
-const createOrgError = ref(null)
-
-function openCreateOrgModal() {
-  showCreateOrgModal.value = true
-  newOrgName.value = ""
-  createOrgError.value = null
-}
-
-function closeCreateOrgModal() {
-  showCreateOrgModal.value = false
-  newOrgName.value = ""
-  createOrgError.value = null
-}
-
-async function handleCreateOrganization() {
-  if (!newOrgName.value.trim()) {
-    createOrgError.value = "Organization name is required."
-    return
-  }
-  creatingOrg.value = true
-  createOrgError.value = null
-  try {
-    const { data, error } = await orgStore.createOrganization({
-      name: newOrgName.value,
-      owner_id: authStore.user.id
-    })
-    if (error) {
-      createOrgError.value = error.message || "Failed to create organization."
-      return
-    }
-    await orgStore.setCurrentOrganization(data.id)
-    closeCreateOrgModal()
-    closeUserMenu()
-    router.push("/settings")
-  } catch (err) {
-    createOrgError.value = "An unexpected error occurred."
-    console.error(err)
-  } finally {
-    creatingOrg.value = false
-  }
-}
               
               <router-link to="/settings" class="dropdown-item" @click="closeUserMenu">
                 Settings
@@ -403,25 +334,3 @@ async function handleSignOut() {
   }
 }
 </style>
-
-/* Modal styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-.modal-card {
-  background: var(--color-white);
-  border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 2rem 1.5rem 1.5rem 1.5rem;
-  min-width: 320px;
-  max-width: 90vw;
-}
