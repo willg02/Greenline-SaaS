@@ -1,5 +1,12 @@
 <template>
   <div class="sop-library">
+    <!-- Debug Info -->
+    <div v-if="!authStore.currentOrganization" style="padding: 2rem; background: #fef3c7; border: 2px solid #f59e0b; margin: 1rem;">
+      <h3>⚠️ No Organization Selected</h3>
+      <p>Please select or create an organization first.</p>
+      <p>User: {{ authStore.user?.email || 'Not logged in' }}</p>
+    </div>
+
     <!-- Header -->
     <div class="header">
       <div class="header-content">
@@ -248,9 +255,18 @@ const getPreview = (content) => {
 
 // Lifecycle
 onMounted(async () => {
+  console.log('SOPLibrary mounted');
+  console.log('Auth user:', authStore.user);
+  console.log('Current org:', authStore.currentOrganization);
+  
   if (authStore.currentOrganization?.id) {
+    console.log('Fetching documents and folders...');
     await fetchDocuments();
     await fetchFolders();
+    console.log('Documents:', documents.value.length);
+    console.log('Folders:', folders.value.length);
+  } else {
+    console.warn('No organization ID found');
   }
 });
 </script>
