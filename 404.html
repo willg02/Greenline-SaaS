@@ -6,20 +6,15 @@
   <title>Greenline SaaS - Plant Business Suite</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <script>
-    // SPA fallback for GitHub Pages - restore URL after 404 redirect
-    (function() {
-      var redirect = sessionStorage.redirect;
-      delete sessionStorage.redirect;
-      if (redirect && redirect !== location.href) {
-        history.replaceState(null, null, redirect);
-      }
-    })();
+    // SPA fallback for GitHub Pages
+    // Redirect all 404s to index.html so Vue Router can handle routing
+    sessionStorage.redirect = location.href;
   </script>
+  <meta http-equiv="refresh" content="0;URL='/'">
 </head>
 <body>
   <div id="app"></div>
   <script type="module" src="/src/main.js"></script>
-  <!-- Runtime configuration for static hosting (generated as public/config.js during CI) -->
   <script src="./config.js" defer></script>
 </body>
 </html>
