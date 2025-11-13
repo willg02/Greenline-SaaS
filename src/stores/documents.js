@@ -2,9 +2,11 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './auth';
+import { useOrganizationStore } from './organization';
 
 export const useDocumentsStore = defineStore('documents', () => {
   const authStore = useAuthStore();
+  const orgStore = useOrganizationStore();
 
   // State
   const documents = ref([]);
@@ -44,7 +46,7 @@ export const useDocumentsStore = defineStore('documents', () => {
 
   // Actions
   const fetchDocuments = async () => {
-    if (!authStore.currentOrganization?.id) return;
+    if (!orgStore.currentOrganization?.id) return;
 
     loading.value = true;
     error.value = null;
@@ -53,7 +55,7 @@ export const useDocumentsStore = defineStore('documents', () => {
       const { data, error: err } = await supabase
         .from('documents')
         .select('*')
-        .eq('organization_id', authStore.currentOrganization.id)
+        .eq('organization_id', orgStore.currentOrganization.id)
         .order('updated_at', { ascending: false });
 
       if (err) throw err;
@@ -67,7 +69,7 @@ export const useDocumentsStore = defineStore('documents', () => {
   };
 
   const fetchFolders = async () => {
-    if (!authStore.currentOrganization?.id) return;
+    if (!orgStore.currentOrganization?.id) return;
 
     loading.value = true;
     error.value = null;
@@ -76,7 +78,7 @@ export const useDocumentsStore = defineStore('documents', () => {
       const { data, error: err } = await supabase
         .from('folders')
         .select('*')
-        .eq('organization_id', authStore.currentOrganization.id)
+        .eq('organization_id', orgStore.currentOrganization.id)
         .order('name', { ascending: true });
 
       if (err) throw err;
@@ -90,7 +92,7 @@ export const useDocumentsStore = defineStore('documents', () => {
   };
 
   const createFolder = async (name, description = '', parentFolderId = null) => {
-    if (!authStore.currentOrganization?.id || !authStore.user?.id) return null;
+    if (!orgStore.currentOrganization?.id || !authStore.user?.id) return null;
 
     loading.value = true;
     error.value = null;
@@ -99,7 +101,7 @@ export const useDocumentsStore = defineStore('documents', () => {
       const { data, error: err } = await supabase
         .from('folders')
         .insert({
-          organization_id: authStore.currentOrganization.id,
+          organization_id: orgStore.currentOrganization.id,
           name,
           description,
           parent_folder_id: parentFolderId,
@@ -168,7 +170,7 @@ export const useDocumentsStore = defineStore('documents', () => {
   };
 
   const createDocument = async (title, folderId = null, content = '') => {
-    if (!authStore.currentOrganization?.id || !authStore.user?.id) return null;
+    if (!orgStore.currentOrganization?.id || !authStore.user?.id) return null;
 
     loading.value = true;
     error.value = null;
@@ -177,7 +179,7 @@ export const useDocumentsStore = defineStore('documents', () => {
       const { data, error: err } = await supabase
         .from('documents')
         .insert({
-          organization_id: authStore.currentOrganization.id,
+          organization_id: orgStore.currentOrganization.id,
           folder_id: folderId,
           title,
           content,

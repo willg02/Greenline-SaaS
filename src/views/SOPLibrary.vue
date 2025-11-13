@@ -1,7 +1,7 @@
 <template>
   <div class="sop-library">
     <!-- Debug Info -->
-    <div v-if="!authStore.currentOrganization" style="padding: 2rem; background: #fef3c7; border: 2px solid #f59e0b; margin: 1rem;">
+    <div v-if="!orgStore.currentOrganization" style="padding: 2rem; background: #fef3c7; border: 2px solid #f59e0b; margin: 1rem;">
       <h3>⚠️ No Organization Selected</h3>
       <p>Please select or create an organization first.</p>
       <p>User: {{ authStore.user?.email || 'Not logged in' }}</p>
@@ -43,6 +43,21 @@
 
       <!-- Main Content Area -->
       <main class="content">
+        <div v-if="!hasAnyContent && !currentDocumentSelected" class="empty-onboarding">
+          <h2>Welcome to your SOP Library</h2>
+          <p class="onboarding-sub">Organize procedures, policies, and internal docs by folders. Get started in seconds.</p>
+          <div class="onboarding-actions">
+            <button class="btn-primary" @click="createStarterContent">Create Starter Content</button>
+            <button class="btn-secondary" @click="showNewFolderModal = true">Add First Folder</button>
+            <button class="btn-secondary" @click="showNewDocumentModal = true">Add First Document</button>
+          </div>
+          <ul class="onboarding-steps">
+            <li>Create folders for areas like Operations, HR, Sales.</li>
+            <li>Add documents, write in Markdown, preview live.</li>
+            <li>Publish finalized SOPs, keep history with versions.</li>
+          </ul>
+        </div>
+
         <div v-if="!currentDocumentSelected" class="documents-list">
           <!-- Search Bar -->
           <div class="search-bar">
@@ -128,6 +143,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useDocumentsStore } from '../stores/documents';
+import { useOrganizationStore } from '../stores/organization';
 import { useAuthStore } from '../stores/auth';
 import FolderNode from '../components/documents/FolderNode.vue';
 import DocumentEditor from '../components/documents/DocumentEditor.vue';
@@ -136,6 +152,7 @@ import NewDocumentModal from '../components/documents/NewDocumentModal.vue';
 import VersionHistoryModal from '../components/documents/VersionHistoryModal.vue';
 
 const documentsStore = useDocumentsStore();
+const orgStore = useOrganizationStore();
 const authStore = useAuthStore();
 
 // Local state
@@ -165,6 +182,7 @@ const {
 } = documentsStore;
 
 // Computed
+const hasAnyContent = computed(() => (documents.value?.length || 0) > 0 || (folders.value?.length || 0) > 0);
 const filteredDocuments = computed(() => {
   return documentsByFolder.value.filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -253,13 +271,21 @@ const getPreview = (content) => {
   return text + (text.length === 150 ? '...' : '');
 };
 
+const createStarterContent = async () => {
+  const folder = await documentsStore.createFolder('Getting Started', 'Starter SOPs and examples');
+  const sample = `# Welcome to Your SOP Library\n\nThis is your space for Standard Operating Procedures and internal documents.\n\n## Tips\n- Use folders to group documents by team or process.\n- Write in Markdown; preview updates live.\n- Publish when ready; every save keeps a version.\n\n## Next\nEdit this document to try the editor, or create your first real SOP.`;
+  await documentsStore.createDocument('Welcome to SOP Library', folder?.id || null, sample);
+  await fetchDocuments();
+  await fetchFolders();
+  currentDocumentSelected.value = true;
+};
+
 // Lifecycle
 onMounted(async () => {
   console.log('SOPLibrary mounted');
-  console.log('Auth user:', authStore.user);
-  console.log('Current org:', authStore.currentOrganization);
+  console.log('Current org:', orgStore.currentOrganization);
   
-  if (authStore.currentOrganization?.id) {
+  if (orgStore.currentOrganization?.id) {
     console.log('Fetching documents and folders...');
     await fetchDocuments();
     await fetchFolders();
@@ -508,4 +534,45 @@ onMounted(async () => {
 .document-viewer {
   height: 100%;
 }
+
+.empty-onboarding {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.empty-onboarding h2 {
+  margin: 0 0 0.5rem 0;
+}
+
+.onboarding-sub {
+  color: #6b7280;
+  margin: 0 0 1rem 0;
+}
+
+.onboarding-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.onboarding-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #4b5563;
+}
+
+.btn-secondary {
+  background-color: #e5e7eb;
+  color: #374151;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:hover { background-color: #d1d5db; }
 </style>
