@@ -30,6 +30,16 @@
                 <span>{{ member.email }}</span>
                 <span class="org-badge" style="margin-left: 0.5rem;">{{ member.role }}</span>
                 <span v-if="member.user_id === organization.owner_id" style="color: var(--color-primary); margin-left: 0.5rem;">(Owner)</span>
+                <select
+                  v-if="canEditMember(member)"
+                  v-model="member.role"
+                  @change="updateMemberRole(member)"
+                  class="role-select"
+                >
+                  <option value="owner">Owner</option>
+                  <option value="admin">Admin</option>
+                  <option value="member">Member</option>
+                </select>
               </li>
             </ul>
             <div v-else>No team members found.</div>
@@ -51,6 +61,53 @@
             <div v-if="inviteSuccess" class="alert alert-success">{{ inviteSuccess }}</div>
           </div>
 
+          <div style="margin-bottom:2rem;">
+            <h3>Role Definitions</h3>
+            <div v-if="loadingRoles">Loading roles...</div>
+            <table v-else class="roles-table">
+              <thead>
+                <tr>
+                  <th>Role</th>
+                  <th>Description</th>
+                  <th>Documents</th>
+                  <th>Quotes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="role in roleDefinitions" :key="role.id">
+                  <td>{{ role.name }}</td>
+                  <td>{{ role.description || '—' }}</td>
+                  <td class="perm-cell">{{ summarizePermissions(role.name, 'documents') }}</td>
+                  <td class="perm-cell">{{ summarizePermissions(role.name, 'quotes') }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="permissionsStore.can('organization','manage_members')" style="margin-bottom:2rem;">
+            <h3>Role Change History</h3>
+            <div v-if="loadingAudit">Loading audit logs...</div>
+            <div v-else-if="!auditLogs.length">No role changes yet.</div>
+            <table v-else class="audit-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>User</th>
+                  <th>Change</th>
+                  <th>Changed By</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="log in auditLogs" :key="log.id">
+                  <td>{{ new Date(log.created_at).toLocaleDateString() }}</td>
+                  <td>{{ log.target?.email || 'Unknown' }}</td>
+                  <td>{{ log.old_role }} → {{ log.new_role }}</td>
+                  <td>{{ log.changer?.email || 'System' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div v-if="isOwner" style="margin-top: 2rem;">
             <h3>Danger Zone</h3>
             <button class="btn btn-danger" @click="handleDeleteOrg" :disabled="deletingOrg">{{ deletingOrg ? 'Deleting...' : 'Delete Organization' }}</button>
@@ -69,10 +126,12 @@ import { ref, computed, onMounted } from 'vue'
 import NavigationBar from '@/components/NavigationBar.vue'
 import { useOrganizationStore } from '@/stores/organization'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { supabase } from '@/lib/supabase'
 
 const orgStore = useOrganizationStore()
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
 
 const organization = computed(() => orgStore.currentOrganization)
 const isOwner = computed(() => orgStore.isOwner)
@@ -95,22 +154,29 @@ async function fetchTeamMembers() {
   if (!organization.value) return
   const { data, error } = await supabase
     .from('organization_members')
-    .select('user_id, role, users ( email )')
+    .select('id, user_id, role, role_id, users ( email )')
     .eq('organization_id', organization.value.id)
   if (error) {
     teamMembers.value = []
     return
   }
   teamMembers.value = data.map(m => ({
+    id: m.id,
     user_id: m.user_id,
     role: m.role,
-    email: m.users?.email || 'Unknown'
+    role_id: m.role_id,
+    email: m.users?.email || 'Unknown',
+    original_role: m.role
   }))
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (organization.value) orgName.value = organization.value.name
   fetchTeamMembers()
+  loadRoleDefinitions()
+  loadPermissions()
+  await permissionsStore.load()
+  loadAuditLogs()
 })
 
 async function handleUpdateOrg() {
@@ -156,6 +222,87 @@ async function handleDeleteOrg() {
   // Remove org from store and redirect
   await orgStore.loadUserOrganizations()
   window.location.href = '/dashboard'
+}
+
+// ---------------------------
+// Role Definitions / Permissions
+// ---------------------------
+const roleDefinitions = ref([])
+const rolePermissions = ref([])
+const loadingRoles = ref(false)
+const auditLogs = ref([])
+const loadingAudit = ref(false)
+
+async function loadRoleDefinitions() {
+  loadingRoles.value = true
+  const { data, error } = await supabase.from('role_definitions').select('*').order('name')
+  if (!error) roleDefinitions.value = data
+  loadingRoles.value = false
+}
+
+async function loadPermissions() {
+  const { data, error } = await supabase.from('role_permissions').select('*')
+  if (!error) rolePermissions.value = data
+}
+
+async function loadAuditLogs() {
+  if (!organization.value || !permissionsStore.can('organization','manage_members')) return
+  loadingAudit.value = true
+  const { data, error } = await supabase
+    .from('role_change_audit')
+    .select('*, target:auth.users!target_user_id(email), changer:auth.users!changed_by(email)')
+    .eq('organization_id', organization.value.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (!error) auditLogs.value = data
+  loadingAudit.value = false
+}
+
+function summarizePermissions(roleName, resource) {
+  const perms = rolePermissions.value.filter(p => p.resource === resource && matchesRoleId(p.role_id, roleName))
+  if (!perms.length) return '—'
+  // Group actions simplifying for display
+  return perms.map(p => p.action).sort().join(', ')
+}
+
+function matchesRoleId(roleId, roleName) {
+  const rd = roleDefinitions.value.find(r => r.id === roleId)
+  return rd ? rd.name === roleName : false
+}
+
+function canEditMember(member) {
+  // Use permission instead of manual role logic
+  if (!authStore.user) return false
+  if (!permissionsStore.can('organization','manage_members')) return false
+  // Prevent self demotion edge-case: editing own role allowed only if owner
+  const myMember = teamMembers.value.find(m => m.user_id === authStore.user.id)
+  if (!myMember) return false
+  if (myMember.user_id === member.user_id && myMember.role !== 'owner') return false
+  // Disallow changing owner if not owner
+  if (member.role === 'owner' && myMember.role !== 'owner') return false
+  return true
+}
+
+async function updateMemberRole(member) {
+  if (!canEditMember(member)) return
+  // If unchanged, skip
+  if (member.role === member.original_role) return
+  // Fetch role_id for selected role
+  const rd = roleDefinitions.value.find(r => r.name === member.role)
+  if (!rd) {
+    member.role = member.original_role
+    return
+  }
+  const { error } = await supabase
+    .from('organization_members')
+    .update({ role: member.role, role_id: rd.id })
+    .eq('id', member.id)
+  if (error) {
+    member.role = member.original_role
+    return
+  }
+  member.original_role = member.role
+  loadAuditLogs() // refresh audit after role change
 }
 </script>
 
@@ -208,5 +355,46 @@ async function handleDeleteOrg() {
   border-radius: var(--border-radius);
   cursor: pointer;
   margin-top: 1rem;
+}
+
+.roles-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+.roles-table th, .roles-table td {
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+.roles-table th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
+}
+.perm-cell {
+  font-family: monospace;
+  white-space: normal;
+}
+.role-select {
+  margin-left: 0.75rem;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
+}
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+.audit-table th, .audit-table td {
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+}
+.audit-table th {
+  background: var(--bg-tertiary);
+  font-weight: 600;
 }
 </style>

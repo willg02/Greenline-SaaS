@@ -149,6 +149,7 @@ import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documents';
 import { useOrganizationStore } from '../stores/organization';
 import { useAuthStore } from '../stores/auth';
+import { usePermissionsStore } from '../stores/permissions';
 import FolderNode from '../components/documents/FolderNode.vue';
 import DocumentEditor from '../components/documents/DocumentEditor.vue';
 import NewFolderModal from '../components/documents/NewFolderModal.vue';
@@ -158,6 +159,7 @@ import VersionHistoryModal from '../components/documents/VersionHistoryModal.vue
 const documentsStore = useDocumentsStore();
 const orgStore = useOrganizationStore();
 const authStore = useAuthStore();
+const permissionsStore = usePermissionsStore();
 
 // Local state
 const searchQuery = ref('');
@@ -201,6 +203,15 @@ const filteredDocuments = computed(() => {
   });
 });
 
+// Permission-based helpers
+const canCreateDocument = computed(() => permissionsStore.can('documents','create'));
+const canCreateFolder = computed(() => permissionsStore.can('documents','create'));
+const canEditAny = computed(() => permissionsStore.can('documents','update_any'));
+const canPublish = computed(() => permissionsStore.can('documents','publish'));
+const canDeleteAny = computed(() => permissionsStore.can('documents','delete_any'));
+const canEditOwn = (doc) => doc.created_by === authStore.user?.id && permissionsStore.can('documents','update_own');
+const canDeleteOwn = (doc) => doc.created_by === authStore.user?.id && permissionsStore.can('documents','delete_own');
+
 // Methods
 const selectFolder = (folder) => {
   currentFolder.value = folder;
@@ -212,6 +223,7 @@ const viewDocument = async (docId) => {
 };
 
 const editDocument = async (doc) => {
+  if (!(canEditAny.value || canEditOwn(doc))) return;
   await documentsStore.fetchDocument(doc.id);
   currentDocumentSelected.value = true;
 };
@@ -221,6 +233,7 @@ const saveDocument = async (updates) => {
 };
 
 const publishDocument = async () => {
+  if (!canPublish.value) return;
   await storePublish(currentDocument.value.id);
 };
 
@@ -229,17 +242,22 @@ const archiveDocument = async () => {
 };
 
 const deleteDocument = async (docId) => {
+  const target = documents.value.find(d => d.id === docId);
+  if (!target) return;
+  if (!(canDeleteAny.value || canDeleteOwn(target))) return;
   if (confirm('Are you sure you want to delete this document?')) {
     await storeDelete(docId);
   }
 };
 
 const handleCreateFolder = async (data) => {
+  if (!canCreateFolder.value) return;
   await documentsStore.createFolder(data.name, data.description, data.parentFolderId);
   showNewFolderModal.value = false;
 };
 
 const handleCreateDocument = async (data) => {
+  if (!canCreateDocument.value) return;
   await documentsStore.createDocument(data.title, data.folderId);
   showNewDocumentModal.value = false;
 };
@@ -293,6 +311,7 @@ const createStarterContent = async () => {
 onMounted(async () => {
   console.log('SOPLibrary mounted');
   console.log('Current org:', orgStore.currentOrganization);
+  await permissionsStore.load();
   
   if (orgStore.currentOrganization?.id) {
     console.log('Fetching documents and folders...');
