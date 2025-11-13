@@ -118,6 +118,24 @@ CROSS JOIN (
 WHERE a.role_name = r.name
 ON CONFLICT DO NOTHING;
 
+-- Invitations resource permissions
+WITH r AS (
+  SELECT id, name FROM role_definitions WHERE name IN ('owner','admin','member')
+)
+INSERT INTO role_permissions (role_id, resource, action)
+SELECT r.id, 'invitations', a.action
+FROM r
+CROSS JOIN (
+  VALUES
+    -- Owner & Admin can manage invitations
+    ('owner','read'), ('owner','create'), ('owner','delete_any'),
+    ('admin','read'), ('admin','create'), ('admin','delete_any'),
+    -- Member can only read
+    ('member','read')
+) AS a(role_name, action)
+WHERE a.role_name = r.name
+ON CONFLICT DO NOTHING;
+
 -- ============================================
 -- 7. PERMISSION CHECK FUNCTION
 -- ============================================
@@ -179,6 +197,36 @@ CREATE POLICY "phase0_clients_delete_own"
   USING (
     has_org_permission(organization_id, 'clients', 'delete_own') AND created_by = auth.uid()
   );
+
+-- ============================================
+-- ORGANIZATION_INVITATIONS POLICIES (phase0_)
+-- ============================================
+
+-- Drop any existing policies that might conflict
+DROP POLICY IF EXISTS "Users can view invitations in their organizations" ON organization_invitations;
+DROP POLICY IF EXISTS "Owners and admins can create invitations" ON organization_invitations;
+DROP POLICY IF EXISTS "Owners and admins can delete invitations" ON organization_invitations;
+
+-- Read: Members can view invitations for their org
+CREATE POLICY "phase0_invitations_select"
+  ON organization_invitations FOR SELECT TO authenticated
+  USING (has_org_permission(organization_id, 'invitations', 'read'));
+
+-- Create: Admins and owners can send invitations
+CREATE POLICY "phase0_invitations_insert"
+  ON organization_invitations FOR INSERT TO authenticated
+  WITH CHECK (has_org_permission(organization_id, 'invitations', 'create'));
+
+-- Update: Admins and owners can update invitation status
+CREATE POLICY "phase0_invitations_update"
+  ON organization_invitations FOR UPDATE TO authenticated
+  USING (has_org_permission(organization_id, 'invitations', 'delete_any'))
+  WITH CHECK (has_org_permission(organization_id, 'invitations', 'delete_any'));
+
+-- Delete: Admins and owners can delete/revoke invitations
+CREATE POLICY "phase0_invitations_delete"
+  ON organization_invitations FOR DELETE TO authenticated
+  USING (has_org_permission(organization_id, 'invitations', 'delete_any'));
 
 -- ============================================
 -- 9. VALIDATION QUERIES (Run manually after migration)
