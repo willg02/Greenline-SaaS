@@ -160,6 +160,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 -- Keep original policies during transition for safety; test then drop old ones.
 -- NOTE: Ensure RLS already enabled on clients.
 
+-- Drop any existing phase0 policies if re-running script
+DROP POLICY IF EXISTS "phase0_clients_select" ON clients;
+DROP POLICY IF EXISTS "phase0_clients_insert" ON clients;
+DROP POLICY IF EXISTS "phase0_clients_update_any" ON clients;
+DROP POLICY IF EXISTS "phase0_clients_update_own" ON clients;
+DROP POLICY IF EXISTS "phase0_clients_delete_any" ON clients;
+DROP POLICY IF EXISTS "phase0_clients_delete_own" ON clients;
+
 -- SELECT
 CREATE POLICY "phase0_clients_select"
   ON clients FOR SELECT TO authenticated
