@@ -74,6 +74,14 @@ ON CONFLICT DO NOTHING;
 -- Assumes plants table: organization_id (nullable for global), created_by
 -- ============================================
 
+-- Drop any existing phase0 policies if re-running script
+DROP POLICY IF EXISTS "phase0_plants_select" ON plants;
+DROP POLICY IF EXISTS "phase0_plants_insert" ON plants;
+DROP POLICY IF EXISTS "phase0_plants_update_any" ON plants;
+DROP POLICY IF EXISTS "phase0_plants_update_own" ON plants;
+DROP POLICY IF EXISTS "phase0_plants_delete_any" ON plants;
+DROP POLICY IF EXISTS "phase0_plants_delete_own" ON plants;
+
 CREATE POLICY "phase0_plants_select"
   ON plants FOR SELECT TO authenticated
   USING (
@@ -131,6 +139,14 @@ CREATE POLICY "phase0_plants_delete_own"
 -- ============================================
 -- 3. MATERIALS POLICIES (phase0_)
 -- ============================================
+
+-- Drop any existing phase0 policies if re-running script
+DROP POLICY IF EXISTS "phase0_materials_select" ON materials;
+DROP POLICY IF EXISTS "phase0_materials_insert" ON materials;
+DROP POLICY IF EXISTS "phase0_materials_update_any" ON materials;
+DROP POLICY IF EXISTS "phase0_materials_update_own" ON materials;
+DROP POLICY IF EXISTS "phase0_materials_delete_any" ON materials;
+DROP POLICY IF EXISTS "phase0_materials_delete_own" ON materials;
 
 CREATE POLICY "phase0_materials_select"
   ON materials FOR SELECT TO authenticated
@@ -190,6 +206,14 @@ CREATE POLICY "phase0_materials_delete_own"
 -- 4. FOLDERS POLICIES (phase0_)
 -- ============================================
 
+-- Drop any existing phase0 policies if re-running script
+DROP POLICY IF EXISTS "phase0_folders_select" ON folders;
+DROP POLICY IF EXISTS "phase0_folders_insert" ON folders;
+DROP POLICY IF EXISTS "phase0_folders_update_any" ON folders;
+DROP POLICY IF EXISTS "phase0_folders_update_own" ON folders;
+DROP POLICY IF EXISTS "phase0_folders_delete_any" ON folders;
+DROP POLICY IF EXISTS "phase0_folders_delete_own" ON folders;
+
 CREATE POLICY "phase0_folders_select"
   ON folders FOR SELECT TO authenticated
   USING (has_org_permission(organization_id, 'folders', 'read'));
@@ -229,6 +253,12 @@ CREATE POLICY "phase0_folders_delete_own"
 -- 5. QUOTE_ITEMS POLICIES (phase0_)
 -- quote_items have quote_id FK; check permission via parent quote's organization
 -- ============================================
+
+-- Drop any existing phase0 policies if re-running script
+DROP POLICY IF EXISTS "phase0_quote_items_select" ON quote_items;
+DROP POLICY IF EXISTS "phase0_quote_items_insert" ON quote_items;
+DROP POLICY IF EXISTS "phase0_quote_items_update" ON quote_items;
+DROP POLICY IF EXISTS "phase0_quote_items_delete" ON quote_items;
 
 CREATE POLICY "phase0_quote_items_select"
   ON quote_items FOR SELECT TO authenticated

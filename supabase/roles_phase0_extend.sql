@@ -43,6 +43,17 @@ ON CONFLICT DO NOTHING;
 -- Keep originals until validated; then drop/rename.
 -- Assumes documents table has columns: organization_id, created_by
 
+-- Drop any existing phase0 policies if re-running script
+DROP POLICY IF EXISTS "phase0_documents_select" ON documents;
+DROP POLICY IF EXISTS "phase0_documents_insert" ON documents;
+DROP POLICY IF EXISTS "phase0_documents_update_any" ON documents;
+DROP POLICY IF EXISTS "phase0_documents_update_own" ON documents;
+DROP POLICY IF EXISTS "phase0_documents_delete_any" ON documents;
+DROP POLICY IF EXISTS "phase0_documents_delete_own" ON documents;
+DROP POLICY IF EXISTS "phase0_documents_publish" ON documents;
+DROP POLICY IF EXISTS "phase0_document_permissions_select" ON document_permissions;
+DROP POLICY IF EXISTS "phase0_document_permissions_all" ON document_permissions;
+
 CREATE POLICY "phase0_documents_select"
   ON documents FOR SELECT TO authenticated
   USING (has_org_permission(organization_id, 'documents', 'read'));
@@ -112,6 +123,14 @@ CREATE POLICY "phase0_document_permissions_all"
 -- ============================================
 -- 3. QUOTE POLICIES (phase0_) USING has_org_permission()
 -- quotes table: organization_id, created_by
+
+-- Drop any existing phase0 policies if re-running script
+DROP POLICY IF EXISTS "phase0_quotes_select" ON quotes;
+DROP POLICY IF EXISTS "phase0_quotes_insert" ON quotes;
+DROP POLICY IF EXISTS "phase0_quotes_update_any" ON quotes;
+DROP POLICY IF EXISTS "phase0_quotes_update_own" ON quotes;
+DROP POLICY IF EXISTS "phase0_quotes_delete_any" ON quotes;
+DROP POLICY IF EXISTS "phase0_quotes_delete_own" ON quotes;
 
 CREATE POLICY "phase0_quotes_select"
   ON quotes FOR SELECT TO authenticated

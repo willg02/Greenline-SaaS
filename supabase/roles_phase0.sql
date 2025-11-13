@@ -214,6 +214,10 @@ CREATE POLICY "phase0_clients_delete_own"
 DROP POLICY IF EXISTS "Users can view invitations in their organizations" ON organization_invitations;
 DROP POLICY IF EXISTS "Owners and admins can create invitations" ON organization_invitations;
 DROP POLICY IF EXISTS "Owners and admins can delete invitations" ON organization_invitations;
+DROP POLICY IF EXISTS "phase0_invitations_select" ON organization_invitations;
+DROP POLICY IF EXISTS "phase0_invitations_insert" ON organization_invitations;
+DROP POLICY IF EXISTS "phase0_invitations_update" ON organization_invitations;
+DROP POLICY IF EXISTS "phase0_invitations_delete" ON organization_invitations;
 
 -- Read: Members can view invitations for their org
 CREATE POLICY "phase0_invitations_select"
