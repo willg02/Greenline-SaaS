@@ -142,6 +142,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useDocumentsStore } from '../stores/documents';
 import { useOrganizationStore } from '../stores/organization';
 import { useAuthStore } from '../stores/auth';
@@ -163,14 +164,19 @@ const showNewDocumentModal = ref(false);
 const showVersionHistory = ref(false);
 const currentDocumentSelected = ref(false);
 
-const { 
-  documents, 
-  folders, 
-  currentDocument, 
+// Extract reactive state via storeToRefs to preserve reactivity
+const {
+  documents,
+  folders,
+  currentDocument,
   currentFolder,
   versions,
   documentsByFolder,
   folderHierarchy,
+} = storeToRefs(documentsStore);
+
+// Methods (non-reactive) pulled directly from the store
+const {
   fetchDocuments,
   fetchFolders,
   fetchVersions,
@@ -184,7 +190,7 @@ const {
 // Computed
 const hasAnyContent = computed(() => (documents.value?.length || 0) > 0 || (folders.value?.length || 0) > 0);
 const filteredDocuments = computed(() => {
-  return documentsByFolder.value.filter(doc => {
+  return (documentsByFolder.value || []).filter(doc => {
     const matchesSearch = doc.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                          (doc.content && doc.content.toLowerCase().includes(searchQuery.value.toLowerCase()));
     const matchesFilter = !filterStatus.value || doc.status === filterStatus.value;
@@ -194,7 +200,7 @@ const filteredDocuments = computed(() => {
 
 // Methods
 const selectFolder = (folder) => {
-  documentsStore.currentFolder = folder;
+  currentFolder.value = folder;
 };
 
 const viewDocument = async (docId) => {
@@ -289,8 +295,8 @@ onMounted(async () => {
     console.log('Fetching documents and folders...');
     await fetchDocuments();
     await fetchFolders();
-    console.log('Documents:', documents.value.length);
-    console.log('Folders:', folders.value.length);
+    console.log('Documents:', (documents.value || []).length);
+    console.log('Folders:', (folders.value || []).length);
   } else {
     console.warn('No organization ID found');
   }
