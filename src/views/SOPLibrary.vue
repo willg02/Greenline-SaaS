@@ -13,9 +13,12 @@
         <h1>SOP Library</h1>
         <p class="subtitle">Standard Operating Procedures & Internal Documents</p>
       </div>
-      <button class="btn-primary" @click="showNewDocumentModal = true">
-        <span>+ New Document</span>
-      </button>
+      <div class="header-actions">
+        <router-link class="btn-secondary slim" :to="{ name: 'Dashboard' }">← Dashboard</router-link>
+        <button class="btn-primary" @click="showNewDocumentModal = true">
+          <span>+ New Document</span>
+        </button>
+      </div>
     </div>
 
     <!-- Main Content -->
@@ -581,4 +584,15 @@ onMounted(async () => {
 }
 
 .btn-secondary:hover { background-color: #d1d5db; }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary.slim {
+  padding: 0.5rem 0.9rem;
+  text-decoration: none;
+}
 </style>
