@@ -139,7 +139,10 @@ ON CONFLICT DO NOTHING;
 -- ============================================
 -- 7. PERMISSION CHECK FUNCTION
 -- ============================================
-CREATE OR REPLACE FUNCTION public.has_org_permission(p_org_id UUID, p_resource TEXT, p_action TEXT)
+-- Drop existing version to allow parameter name changes idempotently
+DROP FUNCTION IF EXISTS public.has_org_permission(UUID, TEXT, TEXT);
+
+CREATE FUNCTION public.has_org_permission(p_org_id UUID, p_resource TEXT, p_action TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
