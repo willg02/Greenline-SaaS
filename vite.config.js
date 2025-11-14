@@ -3,7 +3,8 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
-  base: '/Greenline-SaaS/',
+  // Use /Greenline-SaaS/ for GitHub Pages production, / for local dev
+  base: process.env.NODE_ENV === 'production' ? '/Greenline-SaaS/' : '/',
   plugins: [vue()],
   resolve: {
     alias: {
