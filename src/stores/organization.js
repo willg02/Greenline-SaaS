@@ -85,16 +85,11 @@ export const useOrganizationStore = defineStore('organization', () => {
     try {
       loading.value = true
       console.log('Creating organization:', name)
-
-      // Generate slug from name
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-
-      console.log('Inserting organization...')
+      console.log('Inserting organization (DB will generate slug)...')
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .insert({
           name,
-          slug,
           owner_id,
           subscription_tier: 'solo',
           subscription_status: 'trialing'
