@@ -1,3 +1,8 @@
+-- ============================================================================
+-- DEPRECATED: This file is superseded by APPLY_PHASE0_COMPLETE.sql
+-- Use supabase/APPLY_PHASE0_COMPLETE.sql or individual migrations in supabase/migrations/001-011
+-- Kept for reference only.
+-- ============================================================================
 -- Phase 0 Extension: Documents & Quotes Permissions + Policies
 -- Apply after roles_phase0.sql
 

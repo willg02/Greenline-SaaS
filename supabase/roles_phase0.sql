@@ -1,3 +1,8 @@
+-- ============================================================================
+-- DEPRECATED: This file is superseded by APPLY_PHASE0_COMPLETE.sql
+-- Use supabase/APPLY_PHASE0_COMPLETE.sql or individual migrations in supabase/migrations/001-011
+-- Kept for reference only.
+-- ============================================================================
 -- Phase 0 Roles & Permissions Migration
 -- Run in Supabase SQL editor. Executes additive changes; existing policies remain until explicitly replaced.
 -- Safe to rollback by dropping created tables/column/policies (see end section).
