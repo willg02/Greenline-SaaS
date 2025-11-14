@@ -18,6 +18,13 @@ export const useOrganizationStore = defineStore('organization', () => {
   async function loadUserOrganizations() {
     try {
       loading.value = true
+      console.log('Loading user organizations...')
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        console.log('No authenticated user')
+        return
+      }
 
       const { data, error } = await supabase
         .from('organization_members')
@@ -37,9 +44,15 @@ export const useOrganizationStore = defineStore('organization', () => {
             created_at
           )
         `)
+        .eq('user_id', user.id)
         .order('created_at', { foreignTable: 'organizations', ascending: true })
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase error loading organizations:', error)
+        throw error
+      }
+
+      console.log('Loaded organizations:', data)
 
       userOrganizations.value = data.map(item => ({
         ...item.organizations,
@@ -71,11 +84,13 @@ export const useOrganizationStore = defineStore('organization', () => {
   async function createOrganization({ name, owner_id }) {
     try {
       loading.value = true
+      console.log('Creating organization:', name)
 
       // Generate slug from name
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
-      const { data, error } = await supabase
+      console.log('Inserting organization...')
+      const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .insert({
           name,
@@ -87,31 +102,48 @@ export const useOrganizationStore = defineStore('organization', () => {
         .select()
         .single()
 
-      if (error) throw error
+      if (orgError) {
+        console.error('Error inserting organization:', orgError)
+        throw orgError
+      }
+      console.log('Organization created:', orgData)
 
       // Get owner role_id
+      console.log('Fetching owner role...')
       const { data: ownerRole, error: roleError } = await supabase
         .from('role_definitions')
         .select('id')
         .eq('name', 'owner')
         .single()
 
-      if (roleError) throw roleError
+      if (roleError) {
+        console.error('Error fetching owner role:', roleError)
+        throw roleError
+      }
+      console.log('Owner role:', ownerRole)
 
       // Add user as owner member
+      console.log('Adding user as owner member...')
       const { error: memberError } = await supabase
         .from('organization_members')
         .insert({
-          organization_id: data.id,
+          organization_id: orgData.id,
           user_id: owner_id,
           role_id: ownerRole.id,
           invited_by: owner_id
         })
 
-      if (memberError) throw memberError
+      if (memberError) {
+        console.error('Error inserting member:', memberError)
+        throw memberError
+      }
+      console.log('Member added successfully')
 
+      console.log('Reloading organizations...')
       await loadUserOrganizations()
-      return { data, error: null }
+      console.log('Organization creation complete')
+      
+      return { data: orgData, error: null }
     } catch (error) {
       console.error('Error creating organization:', error)
       return { data: null, error }
