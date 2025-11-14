@@ -139,7 +139,7 @@ ON CONFLICT DO NOTHING;
 -- ============================================
 -- 7. PERMISSION CHECK FUNCTION
 -- ============================================
-CREATE OR REPLACE FUNCTION public.has_org_permission(org_id UUID, resource TEXT, action TEXT)
+CREATE OR REPLACE FUNCTION public.has_org_permission(p_org_id UUID, p_resource TEXT, p_action TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (
@@ -147,10 +147,10 @@ BEGIN
     FROM organization_members om
     JOIN role_definitions rd ON om.role_id = rd.id
     JOIN role_permissions rp ON rp.role_id = rd.id
-    WHERE om.organization_id = org_id
+    WHERE om.organization_id = p_org_id
       AND om.user_id = auth.uid()
-      AND rp.resource = resource
-      AND rp.action = action
+      AND rp.resource = p_resource
+      AND rp.action = p_action
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
