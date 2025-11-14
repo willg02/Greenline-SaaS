@@ -40,15 +40,25 @@
                   :class="{ active: org.id === currentOrgId }"
                 >
                   <span class="org-name">{{ org.name }}</span>
-                  <span class="org-badge">{{ org.role }}</span>
+                  <span class="org-badge">{{ org.role_display || org.role }}</span>
                 </div>
                 <div class="dropdown-divider"></div>
               </div>
               
-              <router-link to="/settings" class="dropdown-item" @click="closeUserMenu">
+              <router-link 
+                to="/settings" 
+                class="dropdown-item" 
+                @click="closeUserMenu"
+                v-if="permissionsStore.can('organization', 'manage_settings') || permissionsStore.can('organization', 'manage_members')"
+              >
                 Settings
               </router-link>
-              <router-link to="/settings/billing" class="dropdown-item" @click="closeUserMenu">
+              <router-link 
+                to="/settings/billing" 
+                class="dropdown-item" 
+                @click="closeUserMenu"
+                v-if="permissionsStore.can('organization', 'configure_billing')"
+              >
                 Billing
               </router-link>
               <div class="dropdown-divider"></div>
@@ -68,14 +78,16 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useOrganizationStore } from '@/stores/organization'
+import { usePermissionsStore } from '@/stores/permissions'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const orgStore = useOrganizationStore()
+const permissionsStore = usePermissionsStore()
 
 const mobileMenuOpen = ref(false)
 const userMenuOpen = ref(false)
@@ -88,6 +100,13 @@ const userInitials = computed(() => {
 })
 const organizations = computed(() => orgStore.userOrganizations)
 const currentOrgId = computed(() => orgStore.organizationId)
+
+// Initialize permissions when component mounts
+onMounted(async () => {
+  if (authStore.isAuthenticated && orgStore.currentOrganization) {
+    await permissionsStore.load()
+  }
+})
 
 function toggleMobileMenu() {
   mobileMenuOpen.value = !mobileMenuOpen.value
@@ -103,6 +122,7 @@ function closeUserMenu() {
 
 async function switchOrganization(orgId) {
   await orgStore.setCurrentOrganization(orgId)
+  await permissionsStore.load() // Reload permissions for new org
   closeUserMenu()
   router.push('/dashboard')
 }

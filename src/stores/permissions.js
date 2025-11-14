@@ -26,10 +26,17 @@ export const usePermissionsStore = defineStore('permissions', () => {
     roleId.value = null
     roleName.value = null
 
-    // Fetch membership
+    // Fetch membership with role info
     const { data: memberRows, error: memberError } = await supabase
       .from('organization_members')
-      .select('role, role_id')
+      .select(`
+        role_id,
+        role_definitions (
+          id,
+          name,
+          display_name
+        )
+      `)
       .eq('organization_id', orgId)
       .eq('user_id', authStore.user.id)
       .limit(1)
@@ -41,25 +48,15 @@ export const usePermissionsStore = defineStore('permissions', () => {
     }
 
     const membership = memberRows[0]
-    roleId.value = membership.role_id || null
-    roleName.value = membership.role
+    roleId.value = membership.role_id
+    roleName.value = membership.role_definitions?.name || null
 
-    // If role_id missing (older rows), we can fallback to role name join.
-    let effectiveRoleId = roleId.value
-    if (!effectiveRoleId) {
-      const { data: roleDefRows } = await supabase
-        .from('role_definitions')
-        .select('id')
-        .eq('name', membership.role)
-        .limit(1)
-      if (roleDefRows && roleDefRows.length) effectiveRoleId = roleDefRows[0].id
-    }
-
-    if (effectiveRoleId) {
+    if (roleId.value) {
+      // Load permissions for this role
       const { data: permRows, error: permError } = await supabase
         .from('role_permissions')
         .select('resource, action')
-        .eq('role_id', effectiveRoleId)
+        .eq('role_id', roleId.value)
 
       if (!permError && permRows) {
         permRows.forEach(p => {

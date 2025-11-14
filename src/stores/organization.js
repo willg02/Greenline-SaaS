@@ -22,7 +22,12 @@ export const useOrganizationStore = defineStore('organization', () => {
       const { data, error } = await supabase
         .from('organization_members')
         .select(`
-          role,
+          role_id,
+          role_definitions (
+            id,
+            name,
+            display_name
+          ),
           organizations (
             id,
             name,
@@ -38,7 +43,9 @@ export const useOrganizationStore = defineStore('organization', () => {
 
       userOrganizations.value = data.map(item => ({
         ...item.organizations,
-        role: item.role
+        role_id: item.role_id,
+        role: item.role_definitions?.name || 'member',
+        role_display: item.role_definitions?.display_name || 'Member'
       }))
 
       // Set first organization as current if none selected
@@ -82,13 +89,23 @@ export const useOrganizationStore = defineStore('organization', () => {
 
       if (error) throw error
 
+      // Get owner role_id
+      const { data: ownerRole, error: roleError } = await supabase
+        .from('role_definitions')
+        .select('id')
+        .eq('name', 'owner')
+        .single()
+
+      if (roleError) throw roleError
+
       // Add user as owner member
       const { error: memberError } = await supabase
         .from('organization_members')
         .insert({
           organization_id: data.id,
           user_id: owner_id,
-          role: 'owner'
+          role_id: ownerRole.id,
+          invited_by: owner_id
         })
 
       if (memberError) throw memberError
@@ -126,16 +143,25 @@ export const useOrganizationStore = defineStore('organization', () => {
     }
   }
 
-  async function inviteTeamMember(email, role = 'member') {
+  async function inviteTeamMember(email, roleName = 'member') {
     try {
       if (!currentOrganization.value) throw new Error('No organization selected')
+
+      // Get role_id for the specified role
+      const { data: roleData, error: roleError } = await supabase
+        .from('role_definitions')
+        .select('id')
+        .eq('name', roleName)
+        .single()
+
+      if (roleError) throw roleError
 
       const { data, error } = await supabase
         .from('organization_invitations')
         .insert({
           organization_id: currentOrganization.value.id,
           email,
-          role,
+          role_id: roleData.id,
           status: 'pending'
         })
         .select()

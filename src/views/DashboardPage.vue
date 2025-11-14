@@ -56,13 +56,14 @@
             <p class="subtitle">Welcome back, {{ userName }}!</p>
           </div>
           <div class="org-info" v-if="organizationName">
+            <span class="role-badge" :class="'role-' + currentRole.toLowerCase()">{{ currentRole }}</span>
             <span class="org-badge">{{ organizationName }}</span>
             <span class="plan-badge">{{ subscriptionTier }}</span>
           </div>
         </div>
 
         <div class="stats-grid">
-          <div class="stat-card card">
+          <div class="stat-card card" v-if="canReadQuotes">
             <div class="stat-icon">💰</div>
             <div class="stat-content">
               <div class="stat-value">{{ totalQuotes }}</div>
@@ -70,7 +71,7 @@
             </div>
           </div>
 
-          <div class="stat-card card">
+          <div class="stat-card card" v-if="canReadClients">
             <div class="stat-icon">👥</div>
             <div class="stat-content">
               <div class="stat-value">{{ totalClients }}</div>
@@ -78,7 +79,7 @@
             </div>
           </div>
 
-          <div class="stat-card card">
+          <div class="stat-card card" v-if="canReadPlants">
             <div class="stat-icon">🌿</div>
             <div class="stat-content">
               <div class="stat-value">{{ totalPlants }}</div>
@@ -86,7 +87,7 @@
             </div>
           </div>
 
-          <div class="stat-card card">
+          <div class="stat-card card" v-if="canReadQuotes">
             <div class="stat-icon">📈</div>
             <div class="stat-content">
               <div class="stat-value">${{ totalRevenue }}</div>
@@ -99,26 +100,26 @@
           <div class="quick-actions card">
             <h2>Quick Actions</h2>
             <div class="actions-list">
-              <router-link to="/quotes" class="action-button btn btn-primary">
+              <router-link to="/quotes" class="action-button btn btn-primary" v-if="canCreateQuotes">
                 <span>💰</span> Create New Quote
               </router-link>
-              <router-link to="/clients" class="action-button btn btn-secondary">
+              <router-link to="/clients" class="action-button btn btn-secondary" v-if="canManageClients">
                 <span>👤</span> Add Client
               </router-link>
-              <router-link to="/plants" class="action-button btn btn-secondary">
+              <router-link to="/plants" class="action-button btn btn-secondary" v-if="canReadPlants">
                 <span>🌿</span> Browse Plants
               </router-link>
-              <router-link to="/calculator" class="action-button btn btn-secondary">
+              <router-link to="/calculator" class="action-button btn btn-secondary" v-if="canUseMaterialCalculator">
                 <span>📐</span> Material Calculator
               </router-link>
             </div>
           </div>
 
-          <div class="recent-quotes card">
+          <div class="recent-quotes card" v-if="canReadQuotes">
             <h2>Recent Quotes</h2>
             <div v-if="recentQuotes.length === 0" class="empty-state">
               <p>No quotes yet. Create your first quote to get started!</p>
-              <router-link to="/quotes" class="btn btn-primary btn-sm">
+              <router-link to="/quotes" class="btn btn-primary btn-sm" v-if="canCreateQuotes">
                 Create Quote
               </router-link>
             </div>
@@ -146,11 +147,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useOrganizationStore } from '@/stores/organization'
+import { usePermissionsStore } from '@/stores/permissions'
 import NavigationBar from '@/components/NavigationBar.vue'
 import { supabase } from '@/lib/supabase'
 
 const authStore = useAuthStore()
 const orgStore = useOrganizationStore()
+const permissionsStore = usePermissionsStore()
 
 const totalQuotes = ref(0)
 const totalClients = ref(0)
@@ -172,6 +175,15 @@ const subscriptionTier = computed(() =>
   orgStore.currentOrganization?.subscription_tier?.toUpperCase() || 'FREE'
 )
 
+// Permission-based computed properties
+const currentRole = computed(() => orgStore.currentOrganization?.role_display || 'Member')
+const canCreateQuotes = computed(() => permissionsStore.can('quotes', 'create'))
+const canReadQuotes = computed(() => permissionsStore.can('quotes', 'read'))
+const canManageClients = computed(() => permissionsStore.can('clients', 'create'))
+const canReadClients = computed(() => permissionsStore.can('clients', 'read'))
+const canReadPlants = computed(() => permissionsStore.can('plants', 'read'))
+const canUseMaterialCalculator = computed(() => permissionsStore.can('quotes', 'read')) // Basic access
+
 onMounted(async () => {
   // Load organizations first
   await orgStore.loadUserOrganizations()
@@ -180,6 +192,7 @@ onMounted(async () => {
   if (orgStore.userOrganizations.length === 0 && !orgStore.currentOrganization) {
     showCreateOrgModal.value = true
   } else {
+    await permissionsStore.load() // Load permissions after org is set
     await loadDashboardData()
   }
 })
@@ -204,6 +217,7 @@ async function handleCreateOrganization() {
     
     showCreateOrgModal.value = false
     newOrgName.value = ''
+    await permissionsStore.load() // Load permissions for new org
     await loadDashboardData()
   } catch (error) {
     console.error('Error creating organization:', error)
@@ -225,38 +239,44 @@ async function loadDashboardData() {
   if (!orgStore.organizationId) return
 
   try {
-    // Load quotes count and recent quotes
-    const { data: quotes, error: quotesError } = await supabase
-      .from('quotes')
-      .select('*')
-      .eq('organization_id', orgStore.organizationId)
-      .order('created_at', { ascending: false })
-      .limit(5)
+    // Load quotes count and recent quotes (if user has permission)
+    if (canReadQuotes.value) {
+      const { data: quotes, error: quotesError } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('organization_id', orgStore.organizationId)
+        .order('created_at', { ascending: false })
+        .limit(5)
 
-    if (!quotesError && quotes) {
-      totalQuotes.value = quotes.length
-      recentQuotes.value = quotes
-      totalRevenue.value = quotes.reduce((sum, q) => sum + (q.total_amount || 0), 0)
+      if (!quotesError && quotes) {
+        totalQuotes.value = quotes.length
+        recentQuotes.value = quotes
+        totalRevenue.value = quotes.reduce((sum, q) => sum + (q.total_amount || 0), 0)
+      }
     }
 
-    // Load clients count
-    const { count: clientsCount, error: clientsError } = await supabase
-      .from('clients')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', orgStore.organizationId)
+    // Load clients count (if user has permission)
+    if (canReadClients.value) {
+      const { count: clientsCount, error: clientsError } = await supabase
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', orgStore.organizationId)
 
-    if (!clientsError) {
-      totalClients.value = clientsCount || 0
+      if (!clientsError) {
+        totalClients.value = clientsCount || 0
+      }
     }
 
-    // Load custom plants count
-    const { count: plantsCount, error: plantsError } = await supabase
-      .from('plants')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', orgStore.organizationId)
+    // Load custom plants count (if user has permission)
+    if (canReadPlants.value) {
+      const { count: plantsCount, error: plantsError } = await supabase
+        .from('plants')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', orgStore.organizationId)
 
-    if (!plantsError) {
-      totalPlants.value += (plantsCount || 0)
+      if (!plantsError) {
+        totalPlants.value += (plantsCount || 0)
+      }
     }
   } catch (error) {
     console.error('Error loading dashboard data:', error)
@@ -299,6 +319,39 @@ function formatDate(dateString) {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.role-badge {
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: capitalize;
+  border: 2px solid;
+}
+
+.role-badge.role-owner {
+  background-color: #fef3c7;
+  color: #92400e;
+  border-color: #fbbf24;
+}
+
+.role-badge.role-admin {
+  background-color: #dbeafe;
+  color: #1e3a8a;
+  border-color: #3b82f6;
+}
+
+.role-badge.role-member {
+  background-color: #d1fae5;
+  color: #065f46;
+  border-color: #10b981;
+}
+
+.role-badge.role-viewer {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #9ca3af;
 }
 
 .org-badge {
